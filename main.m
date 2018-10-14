@@ -48,42 +48,41 @@ mu_1 = (mu(255) - mu) ./ (omega_1);
 var2b = omega_0.*omega_1.*(mu_1 - mu_0).^K_SEGMENTATION;
 
 [~, K] = max(var2b);
-img_segmented = logical(img > K);
+img_segmented = logical(img < K);
 img = img/255;
 
 if B_WITH_SAVING == true
-    imwrite(~img_segmented, 'step_a-segmentation.jpg');
+    imwrite(img_segmented, 'step_a-segmentation.jpg');
 end
 clear K mu mu_0 mu_1 var2b omega_0 omega_1 hstgrm;
 
 %% Dilate and Erode (Close operation)
 if B_WITH_CLOSING == true
-    img_connected = single(~img_segmented);
+    img_connected = single(img_segmented);
     kernel = strel('disk',K_CLOSE_KERNEL_SIZE,0);
     kernel = single(kernel.getnhood());
     img_connected = conv2(img_connected, kernel, 'same');
     img_connected = single(~img_connected);
     img_connected = conv2(img_connected, kernel, 'same');
-    img_connected = logical(img_connected);
+    img_connected = logical(~img_connected);
 else
     img_connected = logical(img_segmented);
 end
 
 if B_WITH_SAVING == true
-    imwrite(~img_connected, 'step_b-close.jpg');
+    imwrite(img_connected, 'step_b-close.jpg');
 end
 clear kernel;
 
 %% Fill nucleus holes
-CC = bwconncomp(img_connected);
+CC = bwconncomp(~img_connected);
 numPixels = cellfun(@numel, CC.PixelIdxList);
 
 for i=1:size(numPixels,2)
     if numPixels(i) <= K_NUCLEUS_SIZE
-        img_connected(CC.PixelIdxList{i}) = 0;
+        img_connected(CC.PixelIdxList{i}) = 1;
     end
 end
-img_connected = ~img_connected;
 
 if B_WITH_SAVING == true
     imwrite(img_connected, 'step_c-fill.jpg');
