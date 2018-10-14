@@ -6,19 +6,20 @@
 clear all; close all;
 
 %% Parameters
-K_FILENAME = 'Picture2';
-REF_LINES = ['A','B','B','F','H'];
-REF_COLUM = [ 1 , 2 , 5 , 1 , 2 ];
-B_INTERATIVE = false; % SELECT REFERENCE HALOS
+K_FILENAME          = 'Picture2';
+REF_LINES           = ['A','B','B','F','H']; % these two must match!
+REF_COLUM           = [ 1 , 2 , 5 , 1 , 2 ]; % these two must match!
+B_WITH_EXPORT       = true;     % EXPORT INTERMEDIATE IMGS
 %
-K_SEGMENTATION = 1.5; % between 1.3 and 2
-K_ROUND_TOLERANCE = 0.2;
-K_CLOSE_KERNEL_SIZE = 2; % N*2 + 1
-B_WITH_CLOSING = true; % CLOSE MORPHOLOGIC OPERATION
-B_WITH_SAVING = true; % EXPORT INTERMEDIATE IMGS
+% ADVANCED
+K_SEGMENTATION      = 1.5;      % between 1.3 and 2
+K_ROUND_TOLERANCE   = 0.2;      % between 0.05 and 0.95
+K_CLOSE_KERNEL_SIZE = 2;        % N*2 + 1
+B_WITH_CLOSING      = true;     % CLOSE MORPHOLOGIC OPERATION
+B_INTERATIVE        = false;    % SELECT REFERENCE HALOS
 %
-K_NUCLEUS_SIZE = 100; % in pixels
-K_HIT_SIZE = 10; % in pixels
+K_NUCLEUS_SIZE      = 100;      % in pixels (filling holes)
+K_HIT_SIZE          = 10;       % in pixels (gridded cells)
 
 %% Open image
 img = double(rgb2gray(imread(strcat(K_FILENAME,'','.png'))));
@@ -51,7 +52,7 @@ var2b = omega_0.*omega_1.*(mu_1 - mu_0).^K_SEGMENTATION;
 img_segmented = logical(img < K);
 img = img/255;
 
-if B_WITH_SAVING == true
+if B_WITH_EXPORT == true
     imwrite(img_segmented, 'step_a-segmentation.jpg');
 end
 clear K mu mu_0 mu_1 var2b omega_0 omega_1 hstgrm;
@@ -69,7 +70,7 @@ else
     img_connected = logical(img_segmented);
 end
 
-if B_WITH_SAVING == true
+if B_WITH_EXPORT == true
     imwrite(img_connected, 'step_b-close.jpg');
 end
 clear kernel;
@@ -84,7 +85,7 @@ for i=1:size(numPixels,2)
     end
 end
 
-if B_WITH_SAVING == true
+if B_WITH_EXPORT == true
     imwrite(img_connected, 'step_c-fill.jpg');
 end
 clear i numPixels CC;
@@ -104,7 +105,7 @@ for i = 1:CC.NumObjects
    end
 end
 
-if B_WITH_SAVING == true
+if B_WITH_EXPORT == true
     mask = single(cat(3,img+img_connected,img+cellule_ronde,img));
     imwrite(mask, 'step_d-round.jpg');
 end
@@ -138,7 +139,7 @@ for i = 1:length(x)
     end
 end
 
-if B_WITH_SAVING == true
+if B_WITH_EXPORT == true
     mask = single(cat(3,img+img_connected,img+img_stdenz,img));
     mask(:,ceil(x),:) = 0;
     mask(:,ceil(x),2) = 1;
@@ -190,7 +191,7 @@ else
 end
 ref_mean = mean(ref_area);
 ref_stdd = std(ref_area);
-if B_WITH_SAVING == true
+if B_WITH_EXPORT == true
     mask = single(cat(3,img+img_refenz,img+img_stdenz,img+img_stdenz));
     imwrite(mask, 'step_f-ref.jpg');
 end
@@ -217,7 +218,7 @@ end
 fprintf(txt,str_bigger);
 fclose(txt);
 
-if B_WITH_SAVING == true
+if B_WITH_EXPORT == true
     mask = single(cat(3,img+img_refenz,img+img_stdenz,img+img_stdenz));
     imwrite(mask, 'step_g-result.jpg');
 end
