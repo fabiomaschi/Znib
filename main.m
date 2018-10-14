@@ -1,7 +1,7 @@
 %%% Znib Project
 %%% Fabio Maschi
 %%% 3 October 2018
-%%% Version 0.4
+%%% Version 0.5
 
 clear all; close all;
 
@@ -151,7 +151,7 @@ end
 clear st i j k my mx xy x y cellule_ronde mask;
 
 %% Select References
-ref_area = 0;
+ref_area = zeros(1,length(REF_LINES));
 aux = 0;
 img_refenz = false(w, h);
 
@@ -167,8 +167,8 @@ if B_INTERATIVE == true
             if(ismember(xy,pixels(j).PixelIdxList))
                 img_stdenz(CC.PixelIdxList{j}) = 0;
                 img_refenz(CC.PixelIdxList{j}) = 1;
-                ref_area = ref_area + stats(j).Area;
                 aux = aux + 1;
+                ref_area(aux) = stats(j).Area;
                 fprintf(txt,formatSpec, aux, stats(j).Area);
                 break;
             end
@@ -183,35 +183,36 @@ else
         if (j ~= 0)
             img_stdenz(CC.PixelIdxList{j}) = 0;
             img_refenz(CC.PixelIdxList{j}) = 1;
-            ref_area = ref_area + stats(j).Area;
             aux = aux + 1;
+            ref_area(aux) = stats(j).Area;
             fprintf(txt,formatSpec, aux, REF_LINES(i), REF_COLUM(i), stats(j).Area);
         end
     end
-    ref_area = ref_area / aux;
 end
-
+ref_mean = mean(ref_area);
+ref_stdd = std(ref_area);
 if B_WITH_SAVING == true
     mask = single(cat(3,img+img_refenz,img+img_stdenz,img+img_stdenz));
     imwrite(mask, 'step_f-ref.jpg');
 end
-clear c i j aux mask letter pixels;
+clear c i j aux mask letter pixels ref_area;
 
 
 %% Compute area
-fprintf(txt,'Average area = %4.2f\n', ref_area);
-formatSpec = '#%c%2d = %4d (%3.2f%%)\n';
-str_bigger = 'Bigger halos:';
+fprintf(txt,'\nAverage area = %4.2f\n', ref_mean);
+fprintf(txt,'Std. deviation = %4.2f\n\n', ref_stdd);
+formatSpec = '#%c%2d = %4d (%5.2f%%)\n';
+str_bigger = '\nBigger halos:';
 for y = 1:size(grid_cells,1)
     letter = char(y+64);
     for x = 1:size(grid_cells,2)
         aux_area = stats(grid_cells(y,x)).Area;
-        if(aux_area < ref_area)
+        if(aux_area < ref_mean)
             img_stdenz(CC.PixelIdxList{grid_cells(y,x)}) = 0;
         else
-            str_bigger = strcat(str_bigger,sprintf(' #%c%d,',letter,x));
+            str_bigger = strcat(str_bigger,sprintf(' #%c%d',letter,x));
         end
-        fprintf(txt,formatSpec,letter,x, aux_area, aux_area/ref_area*100);
+        fprintf(txt,formatSpec,letter,x, aux_area, aux_area/ref_mean*100);
     end
 end
 fprintf(txt,str_bigger);
