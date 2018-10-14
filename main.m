@@ -1,11 +1,12 @@
 %%% Znib Project
 %%% Fabio Maschi
 %%% 3 October 2018
-%%% Version 0.3
+%%% Version 0.4
 
 clear all; close all;
 
 %% Parameters
+K_FILENAME = 'Picture2';
 REF_LINES = ['A','B','B','F','H'];
 REF_COLUM = [ 1 , 2 , 5 , 1 , 2 ];
 B_INTERATIVE = false; % SELECT REFERENCE HALOS
@@ -20,7 +21,8 @@ K_NUCLEUS_SIZE = 100; % in pixels
 K_HIT_SIZE = 10; % in pixels
 
 %% Open image
-img = double(rgb2gray(imread('Picture10.png')));
+img = double(rgb2gray(imread(strcat(K_FILENAME,'','.png'))));
+txt = fopen(strcat(K_FILENAME,'','-result.txt'),'w');
 [w,h] = size(img);
 
 %% Segmentation
@@ -50,7 +52,7 @@ img_segmented = logical(img > K);
 img = img/255;
 
 if B_WITH_SAVING == true
-    imwrite(img_segmented, 'step_a-segmentation.jpg');
+    imwrite(~img_segmented, 'step_a-segmentation.jpg');
 end
 clear K mu mu_0 mu_1 var2b omega_0 omega_1 hstgrm;
 
@@ -68,7 +70,7 @@ else
 end
 
 if B_WITH_SAVING == true
-    imwrite(img_connected, 'step_b-close.jpg');
+    imwrite(~img_connected, 'step_b-close.jpg');
 end
 clear kernel;
 
@@ -84,10 +86,9 @@ end
 img_connected = ~img_connected;
 
 if B_WITH_SAVING == true
-    mask = single(cat(3,img+img_connected,img,img));
-    imwrite(mask, 'step_c-fill.jpg');
+    imwrite(img_connected, 'step_c-fill.jpg');
 end
-clear i numPixels CC mask;
+clear i numPixels CC;
 
 
 %% ROUND CELLS
@@ -119,7 +120,7 @@ x = sort(x);
 y = sort(y);
 
 %% Select gridded cells
-grid_refenz = single(zeros(8,12));
+grid_cells = single(zeros(8,12));
 img_stdenz = false(w, h);
 for i = 1:length(x)
     mx = ceil(x(i)-K_HIT_SIZE:x(i)+K_HIT_SIZE);
@@ -131,7 +132,7 @@ for i = 1:length(x)
         for k = 1:CC.NumObjects
             if(any(ismember(xy,pixels(k).PixelIdxList)))
                 img_stdenz(CC.PixelIdxList{k}) = 1;
-                grid_refenz(j,i) = k;
+                grid_cells(j,i) = k;
                 break;
             end
         end
@@ -139,22 +140,15 @@ for i = 1:length(x)
 end
 
 if B_WITH_SAVING == true
-    figure;
-    % mask = single(cat(3,img+img_connected/2,img+img_stdenz,img+cellule_ronde/2));
     mask = single(cat(3,img+img_connected,img+img_stdenz,img));
-    imshow(mask), hold on
-	line(c(:,1), c(:,2), 'LineStyle','none', 'Marker','+', 'Color','b')
-	for i = 1:length(x)
-        plot([x(i); x(i)], [0; w], 'g-', 'LineWidth',2);
-    end
-	for i = 1:length(y)
-        plot([0; h], [y(i); y(i)], 'g-', 'LineWidth',2);
-    end
-	hold off
-    saveas(gcf,'step_e-grid.jpg')
-    close all;
+    mask(:,ceil(x),:) = 0;
+    mask(:,ceil(x),2) = 1;
+    mask(ceil(y),:,:) = 0;
+    mask(ceil(y),:,2) = 1;
+    imwrite(mask, 'step_e-grid.jpg');
+	%line(c(:,1), c(:,2), 'LineStyle','none', 'Marker','+', 'Color','b')
 end
-clear st i j k my mx xy x y cellule_ronde;
+clear st i j k my mx xy x y cellule_ronde mask;
 
 %% Select References
 ref_area = 0;
@@ -175,7 +169,7 @@ if B_INTERATIVE == true
                 img_refenz(CC.PixelIdxList{j}) = 1;
                 ref_area = ref_area + stats(j).Area;
                 aux = aux + 1;
-                fprintf(formatSpec, aux, stats(j).Area);
+                fprintf(txt,formatSpec, aux, stats(j).Area);
                 break;
             end
         end
@@ -185,13 +179,13 @@ else
     formatSpec = 'Ref #%d %c%2d = %4d pixels\n';
     for i = 1:length(REF_LINES)
         letter = single(REF_LINES(i))-64;
-        j = grid_refenz(letter,REF_COLUM(i));
+        j = grid_cells(letter,REF_COLUM(i));
         if (j ~= 0)
             img_stdenz(CC.PixelIdxList{j}) = 0;
             img_refenz(CC.PixelIdxList{j}) = 1;
             ref_area = ref_area + stats(j).Area;
             aux = aux + 1;
-            fprintf(formatSpec, aux, REF_LINES(i), REF_COLUM(i), stats(j).Area);
+            fprintf(txt,formatSpec, aux, REF_LINES(i), REF_COLUM(i), stats(j).Area);
         end
     end
     ref_area = ref_area / aux;
@@ -201,29 +195,33 @@ if B_WITH_SAVING == true
     mask = single(cat(3,img+img_refenz,img+img_stdenz,img+img_stdenz));
     imwrite(mask, 'step_f-ref.jpg');
 end
-clear c i j aux mask;
+clear c i j aux mask letter pixels;
 
 
 %% Compute area
-fprintf('Average area = %4.2f\n', ref_area);
+fprintf(txt,'Average area = %4.2f\n', ref_area);
 formatSpec = '#%c%2d = %4d (%3.2f%%)\n';
 str_bigger = 'Bigger halos:';
-for y = 1:size(grid_refenz,1)
+for y = 1:size(grid_cells,1)
     letter = char(y+64);
-    for x = 1:size(grid_refenz,2)
-        aux_area = stats(grid_refenz(y,x)).Area;
+    for x = 1:size(grid_cells,2)
+        aux_area = stats(grid_cells(y,x)).Area;
         if(aux_area < ref_area)
-            img_stdenz(CC.PixelIdxList{grid_refenz(y,x)}) = 0;
+            img_stdenz(CC.PixelIdxList{grid_cells(y,x)}) = 0;
         else
             str_bigger = strcat(str_bigger,sprintf(' #%c%d,',letter,x));
         end
-        fprintf(formatSpec,letter,x, aux_area, aux_area/ref_area*100);
+        fprintf(txt,formatSpec,letter,x, aux_area, aux_area/ref_area*100);
     end
 end
-fprintf(str_bigger);
+fprintf(txt,str_bigger);
+fclose(txt);
 
 if B_WITH_SAVING == true
     mask = single(cat(3,img+img_refenz,img+img_stdenz,img+img_stdenz));
     imwrite(mask, 'step_g-result.jpg');
 end
-clear i x y formatSpec str_bigger mask;
+mask = single(cat(3,img,img+img_stdenz,img+img_stdenz));
+imwrite(mask, strcat(K_FILENAME,'','-result.jpg'));
+
+clear i x y formatSpec str_bigger mask letter stats CC aux_area;
