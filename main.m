@@ -1,7 +1,7 @@
 %%% Znib Project
 %%% Fabio Maschi
 %%% 3 October 2018
-%%% Version 0.5
+%%% Version 0.5.2
 
 clear all; close all;
 
@@ -206,6 +206,10 @@ str_bigger = '\nBigger halos:';
 for y = 1:size(grid_cells,1)
     letter = char(y+64);
     for x = 1:size(grid_cells,2)
+        if grid_cells(y,x) == 0
+            fprintf(txt,formatSpec,letter,x, 0, 0);
+            continue;
+        end
         aux_area = stats(grid_cells(y,x)).Area;
         if(aux_area < ref_mean)
             img_stdenz(CC.PixelIdxList{grid_cells(y,x)}) = 0;
