@@ -27,6 +27,9 @@ K_HIT_SIZE          = 10;       % in pixels (gridded cells)
 
 idx = 1;
 for idx=1:K_IMAGES_NUMBER
+    %% Result matrix
+    result = zeros(K_GRID_ROWS,K_GRID_COLUMNS);
+
     %% Open image
     img = double(rgb2gray(imread(strcat(K_FILENAME,int2str(idx),'.png'))));
     txt = fopen(strcat(K_FILENAME,int2str(idx),'-result.txt'),'w');
@@ -157,6 +160,12 @@ for idx=1:K_IMAGES_NUMBER
         imwrite(mask, 'step_e-grid.jpg');
         %line(c(:,1), c(:,2), 'LineStyle','none', 'Marker','+', 'Color','b')
     end
+    % insert grid labels (FROM MATLAB 2018.B)
+    %position = zeros(K_GRID_COLUMNS,2);
+    %position(:,1) = x;
+    %position(:,2) = y(1);
+    %value = 1:K_GRID_COLUMNS;
+    %img = insertText(img,position,value);
     clear st i j k my mx xy x y cellule_ronde mask;
 
     %% Select References
@@ -226,6 +235,7 @@ for idx=1:K_IMAGES_NUMBER
                 str_bigger = strcat(str_bigger,sprintf(' #%c%d',letter,x));
             end
             fprintf(txt,formatSpec,letter,x, aux_area, aux_area/ref_mean*100);
+            result(y,x) = aux_area/ref_mean*100;
         end
     end
     fprintf(txt,str_bigger);
@@ -235,10 +245,24 @@ for idx=1:K_IMAGES_NUMBER
         mask = single(cat(3,img+img_refenz,img+img_stdenz,img+img_stdenz));
         imwrite(mask, 'step_g-result.jpg');
     end
+
     mask = single(cat(3,img,img+img_stdenz,img+img_stdenz));
     imwrite(mask, strcat(K_FILENAME,int2str(idx),'-result.jpg'));
 
     clear i x y formatSpec str_bigger mask letter stats CC aux_area;
+
+    %% Export Spreadsheet [ONLY WINDOWS]
+    result = [1:K_GRID_COLUMNS; result];
+    if B_FLIP_HORIZONTAL == true
+        result = flip(result,2);
+    end
+    %filename = 'znib.xlsx';
+    %sheet = strcat(K_FILENAME,'1-',int2str(K_IMAGES_NUMBER),'.jpg');
+    %xlRange = sprintf('B%d',(idx-1)*(K_GRID_ROWS+2)+1);
+    filename = strcat(K_FILENAME,'1-',int2str(K_IMAGES_NUMBER),'.xlsx');
+    sheet = strcat(K_FILENAME,int2str(idx),'.jpg');
+    xlRange = 'B1';
+    xlswrite(filename,result,sheet,xlRange);
 end
 
 
