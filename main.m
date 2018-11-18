@@ -6,8 +6,8 @@
 clear all; close all;
 
 %% Parameters
-K_FILENAME          = 'Picture';
-K_IMAGES_NUMBER     = 11;
+K_FILENAME          = 'Picture'; % radix for all image samples
+K_IMAGES_NUMBER     = 11;        % from 1 to K_IMAGES_NUMBER (inclusive)
 REF_LINES           = ['A','B','B','F','H']; % these two must match!
 REF_COLUM           = [ 1 , 2 , 5 , 1 , 2 ]; % these two must match!
 B_WITH_EXPORT       = false;     % EXPORT INTERMEDIATE IMGS
@@ -16,9 +16,12 @@ B_WITH_EXPORT       = false;     % EXPORT INTERMEDIATE IMGS
 K_SEGMENTATION      = 1.5;      % between 1.3 and 2
 K_ROUND_TOLERANCE   = 0.2;      % between 0.05 and 0.95
 K_CLOSE_KERNEL_SIZE = 2;        % N*2 + 1
+B_FLIP_HORIZONTAL   = true;     % 1-12 (false) or 12-1 (true)
 B_WITH_CLOSING      = true;     % CLOSE MORPHOLOGIC OPERATION
-B_INTERATIVE        = false;    % SELECT REFERENCE HALOS
+B_INTERATIVE        = false;    % SELECT REFERENCE HALOS - DO NOT CHANGE!
 %
+K_GRID_ROWS         = 8;
+K_GRID_COLUMNS      = 12;
 K_NUCLEUS_SIZE      = 100;      % in pixels (filling holes)
 K_HIT_SIZE          = 10;       % in pixels (gridded cells)
 
@@ -117,13 +120,13 @@ for idx=1:K_IMAGES_NUMBER
     %% Grid detection
     st = regionprops(cellule_ronde, 'Centroid');
     c = vertcat(st.Centroid);
-    [~, x] = kmeans(c(:,1), 12);
-    [~, y] = kmeans(c(:,2), 8);
+    [~, x] = kmeans(c(:,1), K_GRID_COLUMNS);
+    [~, y] = kmeans(c(:,2), K_GRID_ROWS);
     x = sort(x);
     y = sort(y);
 
     %% Select gridded cells
-    grid_cells = single(zeros(8,12));
+    grid_cells = single(zeros(K_GRID_ROWS,K_GRID_COLUMNS));
     img_stdenz = false(w, h);
     for i = 1:length(x)
         mx = ceil(x(i)-K_HIT_SIZE:x(i)+K_HIT_SIZE);
@@ -140,6 +143,9 @@ for idx=1:K_IMAGES_NUMBER
                 end
             end
         end
+    end
+    if B_FLIP_HORIZONTAL == true
+        grid_cells = flip(grid_cells,2);
     end
 
     if B_WITH_EXPORT == true
@@ -158,8 +164,22 @@ for idx=1:K_IMAGES_NUMBER
     aux = 0;
     img_refenz = false(w, h);
 
-    if B_INTERATIVE == true
-        %# INTERATIVE MODE
+    if B_INTERATIVE == false
+        %# AUTOMATED
+        formatSpec = 'Ref #%d %c%2d = %4d pixels\n';
+        for i = 1:length(REF_LINES)
+            letter = single(REF_LINES(i))-64;
+            j = grid_cells(letter,REF_COLUM(i));
+            if (j ~= 0)
+                img_stdenz(CC.PixelIdxList{j}) = 0;
+                img_refenz(CC.PixelIdxList{j}) = 1;
+                aux = aux + 1;
+                ref_area(aux) = stats(j).Area;
+                fprintf(txt,formatSpec, aux, REF_LINES(i), REF_COLUM(i), stats(j).Area);
+            end
+        end
+    else
+        %# INTERATIVE MODE % deprecated!
         formatSpec = 'Ref #%d = %4d pixels\n';
         while(aux ~= N_REFERENCES)
             mask = single(cat(3,img+img_refenz,img+img_stdenz,img+img_stdenz));
@@ -175,20 +195,6 @@ for idx=1:K_IMAGES_NUMBER
                     fprintf(txt,formatSpec, aux, stats(j).Area);
                     break;
                 end
-            end
-        end
-    else
-        %# AUTOMATED
-        formatSpec = 'Ref #%d %c%2d = %4d pixels\n';
-        for i = 1:length(REF_LINES)
-            letter = single(REF_LINES(i))-64;
-            j = grid_cells(letter,REF_COLUM(i));
-            if (j ~= 0)
-                img_stdenz(CC.PixelIdxList{j}) = 0;
-                img_refenz(CC.PixelIdxList{j}) = 1;
-                aux = aux + 1;
-                ref_area(aux) = stats(j).Area;
-                fprintf(txt,formatSpec, aux, REF_LINES(i), REF_COLUM(i), stats(j).Area);
             end
         end
     end
